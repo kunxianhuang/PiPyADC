@@ -1,10 +1,381 @@
+"""
+Add ADS79XX series with Raspberry Pi 4
+"""
+
 import time
 import logging
 import pigpio
 from .ADS1256_definitions import *
 from . import ADS1256_default_config
+from .ADS79XX_definitions import *
+from . import ADS79XX_default_config 
+
 
 logger = logging.getLogger("PiPyADC")
+
+class ADS79XX():
+    """Python class for interfacing the ADS79XX analog to
+    digital converters with the Raspberry Pi.
+
+    This is part of module PiPyADC
+    Download: https://github.com/ul-gh/PiPyADC
+    
+    Default pin and settings configuration is for reading voltage output
+    of amplifier which transfer current signal to voltage signal.
+
+    See file ADS79XX_default_config.py for
+    configuration settings and description.
+
+    Register read/write access is implemented via Python class/instance
+    properties. Commands are implemented as functions.
+    See help(ADS79XX) for usage of the properties and functions herein.
+
+    See ADS79XX_definitions.py for chip registers, flags and commands.
+    
+    Documentation source: Texas Instruments ADS79XX
+    datasheet:https://www.ti.com/lit/ds/slas605c/slas605c.pdf?ts=1697015226164&ref_url=https%253A%252F%252Fwww.google.com%252F 
+
+"""
+    open_spi_handles = {}
+    pins_initialized = {}
+    exclusive_pins_used = {}
+
+    # Hardware pin configuration must be set at initialization phase.
+    # Register/Configuration Flag settings are initialized, but these
+    # can be changed during runtime via class properties.
+    # Default config is read from external file (module).
+    def __init__(self, conf=ADS79XX_default_config, pi=None):
+        # Set up the pigpio object if not provided as an argument
+        if pi is None:
+            self.pi = pigpio.pi()
+            print(self.pi)
+            self.created_pigpio = True
+        else:
+            self.pi = pi
+            self.created_pigpio = False
+        if not self.pi.connected:
+            raise IOError("Could not connect to hardware via pigpio library")
+        # This is not needed for any function currently implemented here,
+        # but the attribute is kept for user code which relys on the value
+        self.v_ref = conf.v_ref
+
+        # minimum quiet sampling time needed from bus 3-state to start of next conversion
+        self._T_q_TIMEOUT = 40.0E-9
+        # Conversion time
+        self._T_conv_TIMEOUT = 1E-9 +16/conf.CLKIN_FREQUENCY
+        # Delay time, cs low to first data(DO-15) out (VBD=+5V)
+        self._T_d1_TIMEOUT = 17.0E-9 
+        # Pulse duration cs high
+        self._T_w1_TIMEOUT = 20.0E-9
+
+
+        self.configure_gpios(conf)
+        self.configure_spi(conf)
+        
+        #self.preset_adc_registers(conf)
+        #self.check_chip_id()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, _exc_type, _exc_value, _traceback):
+        if _exc_type is not None:
+            self.stop_close_all()
+        else:
+            self.stop()
+
+    @property
+    def v_per_digit(self):
+        """Get ADC LSB weight in volts per numeric output digit.
+        Readonly: This is a convenience value calculated from
+        gain and v_ref setting.
+        """
+        digits = conf.DIGITS_NUM
+        return self.v_ref * conf.gain_flags/( 2**digits - 1)
+    @v_per_digit.setter
+    def v_per_digit(self, value):
+        self.stop_close_all()
+        raise AttributeError("This is a read-only attribute")
+
+
+
+    def configure_gpios(self, conf):
+        # The following four GPIOs are used for this ADS79XX implementation:
+        self._CS_PIN = conf.CS_PIN
+        #self._DRDY_PIN = conf.DRDY_PIN
+        #self._RESET_PIN = conf.RESET_PIN
+        # Not implemented
+        # self._PDWN_PIN = conf.PDWN_PIN
+        # Config and initialize the SPI and GPIO pins used by the ADC.
+        # For configuration of multiple SPI devices on this bus:
+        if conf.CS_PIN in self.exclusive_pins_used:
+            self.stop_close_all()
+            raise RuntimeError("CS pin already used. Must be exclusive!")
+        self.exclusive_pins_used[conf.CS_PIN] = conf.CS_PIN
+        if hasattr(conf, "CHIP_SELECT_GPIOS_INITIALIZE"):
+            if type(conf.CHIP_SELECT_GPIOS_INITIALIZE) is int:
+                cs_gpios = (conf.CHIP_SELECT_GPIOS_INITIALIZE, )
+            else:
+                cs_gpios = tuple(conf.CHIP_SELECT_GPIOS_INITIALIZE)
+            if conf.CS_PIN not in cs_gpios:
+                cs_gpios = cs_gpios + (conf.CS_PIN, )
+            for pin in cs_gpios:
+                self._init_input(pin, init_state=1, name="chip select")
+        
+        
+    
+    def configure_spi(self, conf):
+        # SPI bus config
+        logger.debug(f"Activating SPI, SW chip select on GPIO: {conf.CS_PIN}")
+        # The ADS79XX uses SPI MODE=1 <=> CPOL=0, CPHA=0. 
+        if hasattr(conf, "SPI_FLAGS"):
+            spi_flags = conf.SPI_FLAGS
+        else:
+            #              bbbbbbRTnnnnWAuuupppmm
+            spi_flags  = 0b0000000000000011100000 
+        if hasattr(conf, "SPI_BUS") and conf.SPI_BUS == 1:
+            spi_flags |= 0b0000000000000111100000 
+        # PIGPIO library returns a numeric handle for each chip on this bus.
+        try:
+            self.spi_handle = self.pi.spi_open(0, conf.SPI_FREQUENCY, spi_flags)
+        except Exception as e:
+            logger.error("SPI open error")
+            self.stop_close_all()
+            raise e from None
+        # Add to class attribute
+        self.open_spi_handles[self.spi_handle] = self.spi_handle
+        logger.debug(f"Obtained SPI device handle: {self.spi_handle}")
+        
+    def preset_adc_registers(self, conf):
+        # Configure ADC registers:
+        # Status register not yet set, only variable written to avoid multiple
+        # triggering of the AUTOCAL procedure by changing other register flags
+        #self._status       = conf.status
+        # Class properties now configure registers via their setter functions
+        self.mux           = conf.mux
+        self.adcon         = conf.adcon
+        self.drate         = conf.drate
+        self.gpio          = conf.gpio
+        self.status        = conf.status
+        
+
+    
+
+    def stop(self):
+        """Close own SPI handle, only stop pigpio connection if we created it
+        """
+        logger.debug(f"Closing SPI handle: {self.spi_handle}")
+        self.pi.spi_close(self.spi_handle)
+        self.open_spi_handles.pop(self.spi_handle)
+        self.exclusive_pins_used.pop(self._CS_PIN)
+        #self.exclusive_pins_used.pop(self._DRDY_PIN)
+        if self.created_pigpio:
+            logger.debug(f"Closing PIGPIO instance")
+            self.pi.stop()
+        # Else leaving external PIGPIO instance active
+
+    def stop_close_all(self):
+        """Close all open pigpio SPI handles and stop pigpio connection
+        """
+        for handle in reversed(self.open_spi_handles):
+            logger.debug(f"Closing SPI handle: {handle}")
+            self.pi.spi_close(handle)
+        self.open_spi_handles.clear()
+        self.exclusive_pins_used.clear()
+        logger.debug(f"Closing PIGPIO instance")
+        self.pi.stop()
+
+    def set_auto2mode(self,retain_last:int=1,reset:int=1):
+        """ Set ADC 79XX to auto 2 mode for continuous reading and conversion
+
+        Arguments: None
+        Returns: None
+        """
+        self._chip_select()
+        
+        # Send the read command
+        msgl = self.msg_auto2(retain_last=1,reset=0)
+        self.pi.spi_write(self.spi_handle, msgl)
+        time.sleep(self._T_conv_TIMEOUT)
+        self._chip_release()
+
+    def set_programauto2(self):
+        """ Complete programming of auto2 mode
+        Arguments: None 
+        Return: None
+        """
+        self._chip_select()
+        
+        # Send the read command
+        msgl = self.msg_programauto2()
+        self.pi.spi_write(self.spi_handle, msgl)
+        time.sleep(self._T_conv_TIMEOUT)
+        self._chip_release()
+
+        
+    def msg_auto2(self,retain_last:int=1,reset:int=1):
+        """ Edit the message of setting auto 2 mode
+        Arguments: None 
+        Return: 2 bytes of messages, list of int
+
+        """
+        #construct SPI message
+        msg = 0b0011 # DI 15-12: select Auto-2 mode
+        msg = (msg<<1)+retain_last  #DI11 Enables programmin of bits DI10-00
+        msg = (msg<<1)+reset #DI10 channel number reset or increment every conversion
+        msg = (msg<<2) # DI08-09 00 Do not care
+        msgl = [msg, 0b01000000] # DI06 Select 2xV_ref i/p range, DI04 SDO output the current channel address of the channel on DO15...12 followed by the 12-bit conversion result on DO11...00
+    
+        return msgl
+
+    def msg_programauto2(self):
+        """ Edit the message of program register auto 2 mode
+        Arguments: None 
+        Return: 2 bytes of messages, list of int
+
+        """
+        # construct spi message
+        msg = 0b1001
+        msg = msg<<2
+        msg = msg<<2+0b11 # to channel 16
+        msgl  = [msg,0b11000000]
+    
+        return msgl
+
+    def msg_continueauto2(self,reset:int=0):
+        """ Edit the message of continue operation auto 2 mode
+        Arguments: None 
+        Return: 2 bytes of messages, list of int
+
+        """
+        #construct SPI message
+        msg = 0b0000 # DI 15-12: continue to operate in the selected mode.
+        msg = msg+reset # reset if needed
+        msg = msg<<4
+        msgl = [msg,0b00000000]
+        return msgl
+
+    
+    def read_and_next_is(self, diff_channel):
+        """Reads ADC data of presently running or already finished
+        conversion, sets and synchronises new input channel config
+        for next sequential read.
+
+        Arguments:  8-bit code value for differential input channel
+                        (See definitions for the REG_MUX register)
+        Returns:    Signed integer conversion result for present read
+        
+        This enables rapid dycling through different channels and
+        implements the timing sequence outlined in the ADS1256
+        datasheet (Sept.2013) on page 21, figure 19: "Cycling the
+        ADS1256 Input Multiplexer".
+
+        Note: In most cases, a fixed sequence of input channels is known
+        beforehand. For that case, this module implements the function:
+        
+        read_sequence(ch_sequence)
+            which automates the process for cyclic data acquisition.
+        """
+        msgl = self.msg_continueauto2(reset=0)
+        self._chip_select()
+        """
+        # self._wait_DRDY()
+        # Setting mux position for next cycle"
+
+        self.pi.spi_write(
+            self.spi_handle, [CMD_WREG|REG_MUX, 0x00, diff_channel, CMD_SYNC])
+        time.sleep(self._SYNC_TIMEOUT)
+        self.pi.spi_write(self.spi_handle, [CMD_WAKEUP])
+        # The datasheet is a bit unclear if a t_11 timeout is needed here.
+        # Assuming the extra timeout is the safe choice:
+        time.sleep(self._T_11_TIMEOUT)
+        # Read data from ADC, which still returns the /previous/ conversion
+        # result from before changing inputs
+        self.pi.spi_write(self.spi_handle, [CMD_RDATA])
+        time.sleep(self._DATA_TIMEOUT)
+        # The result is 24 bits little endian two's complement value by default
+        count, inbytes = self.pi.spi_read(self.spi_handle, 3)
+        if count != 3:
+            logger.error("SPI read error occurred!")
+        """
+        
+        count, inbytes = self.pi.spi_xfer(self.spi_handle,msgl)
+        if count !=2:
+            logger.error("SPI read error occurred!")
+
+        self._chip_release()
+        # combine 2 bytes into one integer and return it
+        return int.from_bytes(inbytes, "big", signed=True)
+
+    
+    def read_sequence(self, ch_sequence, ch_buffer=None):
+        """Reads a sequence of ADC input channel pin pairs.
+
+        Restarts and re-syncs the ADC for the first sample.
+
+        The time delay resulting from this can be avoided when reading
+        the ADC in a cyclical pattern using the read_continue() method.
+
+        Argument1:  Tuple (list) of 8-bit code values for differential
+                    input channel pins to read sequentially in a cycle.
+                    (See definitions for the REG_MUX register)
+
+                    Example:
+                    ch_sequence=(POS_AIN0|NEG_AIN1, POS_AIN2|NEG_AINCOM)
+
+        Argument2:  List (array, buffer) of signed integer conversion
+                    results for the sequence of input channels.
+
+        Returns:    List (array, buffer) of signed integer conversion
+                    results for the sequence of input channels.
+
+        This implements the timing sequence outlined in the ADS1256
+        datasheet (Sept.2013) on page 21, figure 19: "Cycling the
+        ADS1256 Input Multiplexer" for cyclic data acquisition.
+        """
+        #self.mux = ch_sequence[0]
+        #self.sync()
+        buf_len = len(ch_sequence)
+        if ch_buffer is None:
+            ch_buffer = [0] * buf_len 
+        for i in range(0, buf_len):
+            ch_buffer[i] = self.read_and_next_is(ch_sequence[(i+1)%buf_len])
+        return ch_buffer
+
+
+    def _chip_select(self):
+        # If chip select pin is hardwired to GND, do nothing.
+        if self._CS_PIN is not None:
+            self.pi.write(self._CS_PIN, 0)
+
+    # Release chip select and implement t_11 timeout
+    def _chip_release(self):
+        if self._CS_PIN is not None:
+            self.pi.write(self._CS_PIN, 1)
+            # The minimum t_w1 timeout between commands, see datasheet Figure 2.
+            time.sleep(self._T_w1_TIMEOUT)
+        else:
+            # The minimum t_w1 timeout between commands, see datasheet Figure 2.
+            time.sleep(self._T_w1_TIMEOUT)
+
+    def _init_output(self, pin, init_state, name="output"):
+        if pin is not None and pin not in self.pins_initialized:
+            logger.debug(f"Setting as output: {pin} ({name})")
+            self.pi.set_mode(pin, pigpio.OUTPUT)
+            self.pi.write(pin, init_state)
+            self.pins_initialized[pin] = pin
+
+    def _init_input(self, pin, init_state, name="input"):
+        if pin is not None and pin not in self.pins_initialized:
+            logger.debug(f"Setting as input: {pin} ({name})")
+            self.pi.set_mode(pin, pigpio.INPUT)
+            self.pi.write(pin, init_state)
+            self.pins_initialized[pin] = pin
+
+
+
+
+
 
 class ADS1256():
     """Python class for interfacing the ADS1256 and ADS1255 analog to
