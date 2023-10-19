@@ -30,22 +30,37 @@ def raw_to_voltage(raw_channel):
     return adc_ch,voltage
 
 
-def loop_oneminute_measurements(ads,File):
+def loop_oneminute_measurements(ads,adcFile):
     # Arbitrary length tuple of input channel pair values to scan sequentially
     CH_SEQUENCE = CH0, CH1, CH2, CH3, CH4, CH5, CH6, CH7, CH8, CH9, CH10, CH11, CH12, CH13, CH14, CH15, CH15
-    while True:
+    # sample rate 50 Hz for recording 1 min data 
+    counts = 1.0 * 60.0* 50.0
+    i=0
+    while i <counts:
 
+        start = perf_counter()
         # Returns list of integers, one result for each configured channel
         raw_channels = ads.read_sequence(CH_SEQUENCE)
+        record_time = strftime('%c', localtime())
         ch_l =[]
         voltage_l=[]
         for raw_channel in raw_channels:
-            raw_to_voltage(raw_channel)
-            
+            ch, voltage = raw_to_voltage(raw_channel)
+            ch_l.append(ch)
+            voltage_l.append(voltage)
 
-        # Text-mode output
+        end = perf_counter()
+        exe_time = (end-start)
+        print(execute {}-times time {}\n".format(i,exe_time))
+        #print("epoch {} channel {} execute time {}\n".format(epoch,chs,exe_time))
+        for ch,voltage in zip(ch_l,voltage_l):
+            adcFile.write("CH:{}\t Voltage:{}V\t Time:{}\n".format(ch,voltage,record_time))
+
         
-        voltages = [i * ads.v_per_digit for i in raw_channels]
+
+        time.sleep(1.0/50.0) # 50 Hz
+        i+=1
+        
 
 
 
