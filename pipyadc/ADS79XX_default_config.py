@@ -53,24 +53,18 @@ RESET_PIN   = None # Set to None if not used.
 PDWN_PIN    = None # Set to None if not used.
 ###############################################################################
 
-##################  ADS1256 Constant Configuration Settings  ##################
-# Seconds to wait in case DRDY pin is not connected or the chip
-# does not respond. See table 21 of ADS1256 datasheet: When using a
-# sample rate of 2.5 SPS and issuing a self calibration command,
-# the timeout can be up to 1228 milliseconds:
-DRDY_TIMEOUT    = 2
-# Optional delay in seconds to avoid busy wait and reduce CPU load when
-# polling the DRDY pin. Default is 0.000001 or 1 µs (timing not accurate)
-DRDY_DELAY      = 0.000001
 # Master clock rate in Hz. Default is 7680000:
 # this clock should be the same with SPI clock
 CLKIN_FREQUENCY = SPI_FREQUENCY
+
+# 12-bit, 10-bit or 8-bit
+DIGITS_NUM = 12
 ################################################################################
 
 
 # All following settings are accessible through ADS79XX class properties
 
-##############  ADS79XX Default Runtime Adjustable Properties  #################
+##############  ADS79XX Default Adjustable Properties  #################
 # Analog reference voltage between VREFH and VREFN pins
 v_ref = 3.3
 # Gain seting of the integrated programmable amplifier. This value must be

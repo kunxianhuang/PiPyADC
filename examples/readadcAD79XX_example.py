@@ -14,25 +14,26 @@ import logging
 from time import perf_counter,sleep,strftime,localtime
 from pipyadc import ADS79XX
 from pipyadc.ADS79XX_definitions import *
+from pipyadc import ADS79XX_default_config
 
 
 logging.basicConfig(level=logging.DEBUG)
 
 
-def raw_to_voltage(raw_channel):
-    count_mask = 0b0000111111110000 # 8-bit mask
-    
+def raw_to_voltage(raw_channel,v_per_digit):
+    #count_mask = 0b0000111111110000 # 8-bit mask
+    count_mask = 0b0000111111111111 # 12-bit mask
     #print("reply message is {}".format(raw_channel))
     adc_ch = raw_channel>>12 #D15-D12 ADC channel number
     adc_count = raw_channel&count_mask # D0-D11 ADC count 
-    voltage = ads.v_per_digit*adc_count
+    voltage = v_per_digit*adc_count
 
     return adc_ch,voltage
 
 
 def loop_oneminute_measurements(ads,adcFile):
     # Arbitrary length tuple of input channel pair values to scan sequentially
-    CH_SEQUENCE = CH0, CH1, CH2, CH3, CH4, CH5, CH6, CH7, CH8, CH9, CH10, CH11, CH12, CH13, CH14, CH15, CH15
+    CH_SEQUENCE = 0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15
     # sample rate 50 Hz for recording 1 min data 
     counts = 1.0 * 60.0* 50.0
     i=0
@@ -45,13 +46,13 @@ def loop_oneminute_measurements(ads,adcFile):
         ch_l =[]
         voltage_l=[]
         for raw_channel in raw_channels:
-            ch, voltage = raw_to_voltage(raw_channel)
+            ch, voltage = raw_to_voltage(raw_channel,ads.v_per_digit)
             ch_l.append(ch)
             voltage_l.append(voltage)
 
         end = perf_counter()
         exe_time = (end-start)
-        print(execute {}-times time {}\n".format(i,exe_time))
+        print("execute {}-times time {}\n".format(i,exe_time))
         #print("epoch {} channel {} execute time {}\n".format(epoch,chs,exe_time))
         for ch,voltage in zip(ch_l,voltage_l):
             adcFile.write("CH:{}\t Voltage:{}V\t Time:{}\n".format(ch,voltage,record_time))
@@ -66,14 +67,14 @@ def loop_oneminute_measurements(ads,adcFile):
 
 def main():
 
-
+    adcfile= open("./adc_files.txt","w+",encoding="utf-8")
     try:
-        ###### STEP 1: ADS1256 now supports the context-manager API. [*]
-        # Use this to have ADS1256 automatically close the SPI device and
+        
+        # Use this to have ADS79XX automatically close the SPI device and
         # pigpio resources at exit:
-        with ADS1256() as ads:
+        with ADS79XX(ADS79XX_default_config) as ads:
             # Get and process data
-            loop_oneminute_measurements(ads,File)
+            loop_oneminute_measurements(ads,adcfile)
 
     except KeyboardInterrupt:
         print("\nUser Exit.\n")

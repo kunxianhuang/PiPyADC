@@ -45,6 +45,7 @@ class ADS79XX():
     # can be changed during runtime via class properties.
     # Default config is read from external file (module).
     def __init__(self, conf=ADS79XX_default_config, pi=None):
+        self.conf = conf
         # Set up the pigpio object if not provided as an argument
         if pi is None:
             self.pi = pigpio.pi()
@@ -90,8 +91,9 @@ class ADS79XX():
         Readonly: This is a convenience value calculated from
         gain and v_ref setting.
         """
-        digits = conf.DIGITS_NUM
-        return self.v_ref * conf.gain_flags/( 2**digits - 1)
+        digits = self.conf.DIGITS_NUM
+        voltage_per_digit = self.v_ref * self.conf.gain_flags/( 2**digits - 1)
+        return voltage_per_digit
     @v_per_digit.setter
     def v_per_digit(self, value):
         self.stop_close_all()
@@ -236,9 +238,10 @@ class ADS79XX():
         """
         # construct spi message
         msg = 0b1001
-        msg = msg<<2
-        msg = msg<<2+0b11 # to channel 16
-        msgl  = [msg,0b11000000]
+        msg = msg<<4
+        msg = msg+0b11 # to channel 16
+        msgl  = [msg, 0b11000000]
+        
     
         return msgl
 
@@ -304,8 +307,8 @@ class ADS79XX():
             logger.error("SPI read error occurred!")
 
         self._chip_release()
-        # combine 2 bytes into one integer and return it
-        return int.from_bytes(inbytes, "big", signed=True)
+        # combine 2 bytes into one integer and return it, first bit is not signed
+        return int.from_bytes(inbytes, "big", signed=False)
 
     
     def read_sequence(self, ch_sequence, ch_buffer=None):
@@ -339,7 +342,7 @@ class ADS79XX():
         if ch_buffer is None:
             ch_buffer = [0] * buf_len 
         for i in range(0, buf_len):
-            ch_buffer[i] = self.read_and_next_is(ch_sequence[(i+1)%buf_len])
+            ch_buffer[i] = int(self.read_and_next_is(ch_sequence[(i+1)%buf_len]))
         return ch_buffer
 
 
