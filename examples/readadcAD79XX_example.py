@@ -73,6 +73,9 @@ def main():
         # Use this to have ADS79XX automatically close the SPI device and
         # pigpio resources at exit:
         with ADS79XX(ADS79XX_default_config) as ads:
+            ads.set_auto2mode(retain_last=1,reset=1)
+            ads.set_auto2mode(retain_last=0,reset=0)
+            ads.set_programauto2()
             # Get and process data
             loop_oneminute_measurements(ads,adcfile)
 
