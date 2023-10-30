@@ -104,12 +104,7 @@ class ADS79XX():
     def configure_gpios(self, conf):
         # The following four GPIOs are used for this ADS79XX implementation:
         self._CS_PIN = conf.CS_PIN
-        #self._DRDY_PIN = conf.DRDY_PIN
-        #self._RESET_PIN = conf.RESET_PIN
-        # Not implemented
-        # self._PDWN_PIN = conf.PDWN_PIN
-        # Config and initialize the SPI and GPIO pins used by the ADC.
-        # For configuration of multiple SPI devices on this bus:
+        
         if conf.CS_PIN in self.exclusive_pins_used:
             self.stop_close_all()
             raise RuntimeError("CS pin already used. Must be exclusive!")
@@ -268,39 +263,12 @@ class ADS79XX():
                         (See definitions for the REG_MUX register)
         Returns:    Signed integer conversion result for present read
         
-        This enables rapid dycling through different channels and
-        implements the timing sequence outlined in the ADS1256
-        datasheet (Sept.2013) on page 21, figure 19: "Cycling the
-        ADS1256 Input Multiplexer".
-
-        Note: In most cases, a fixed sequence of input channels is known
-        beforehand. For that case, this module implements the function:
         
         read_sequence(ch_sequence)
             which automates the process for cyclic data acquisition.
         """
         msgl = self.msg_continueauto2(reset=0)
         self._chip_select()
-        """
-        # self._wait_DRDY()
-        # Setting mux position for next cycle"
-
-        self.pi.spi_write(
-            self.spi_handle, [CMD_WREG|REG_MUX, 0x00, diff_channel, CMD_SYNC])
-        time.sleep(self._SYNC_TIMEOUT)
-        self.pi.spi_write(self.spi_handle, [CMD_WAKEUP])
-        # The datasheet is a bit unclear if a t_11 timeout is needed here.
-        # Assuming the extra timeout is the safe choice:
-        time.sleep(self._T_11_TIMEOUT)
-        # Read data from ADC, which still returns the /previous/ conversion
-        # result from before changing inputs
-        self.pi.spi_write(self.spi_handle, [CMD_RDATA])
-        time.sleep(self._DATA_TIMEOUT)
-        # The result is 24 bits little endian two's complement value by default
-        count, inbytes = self.pi.spi_read(self.spi_handle, 3)
-        if count != 3:
-            logger.error("SPI read error occurred!")
-        """
         
         count, inbytes = self.pi.spi_xfer(self.spi_handle,msgl)
         if count !=2:
