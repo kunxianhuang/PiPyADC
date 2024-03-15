@@ -66,12 +66,13 @@ DIGITS_NUM = 12
 
 ##############  ADS79XX Default Adjustable Properties  #################
 # Analog reference voltage between VREFH and VREFN pins
-v_ref = 2.5
+#v_ref = 2.5
+v_ref = 3.0
 # Gain seting of the integrated programmable amplifier. This value must be
 # one of (GAIN_1, GAIN_2, GAIN_4, GAIN_8, GAIN_16, GAIN_32, GAIN_64).
 # Gain = 1, V_ref = 2.5V ==> full-scale input voltage = 5.00V, corresponding
 # to a 24-bit two's complement output value of 2**23 - 1 = 8388607
-gain_flags = 2
+gain_flags = 2 
 ################################################################################
 
 ####################  ADS1256 Default Register Settings  #######################

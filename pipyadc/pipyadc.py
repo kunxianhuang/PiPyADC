@@ -221,7 +221,8 @@ class ADS79XX():
         msg = (msg<<1)+retain_last  #DI11 Enables programmin of bits DI10-00
         msg = (msg<<1)+reset #DI10 channel number reset or increment every conversion
         msg = (msg<<2) # DI08-09 00 Do not care
-        msgl = [msg, 0b01000000] # DI06 Select 2xV_ref i/p range, DI04 SDO output the current channel address of the channel on DO15...12 followed by the 12-bit conversion result on DO11...00
+        # msgl = [msg, 0b01000000] # DI06 Select 2xV_ref i/p range, DI04 SDO output the current channel address of the channel on DO15...12 followed by the 12-bit conversion result on DO11...00
+        msgl = [msg, 0b00000000] # DI06 Select 1xV_ref i/p range, DI04 SDO output the current channel address of the channel on DO15...12 followed by the 12-bit conversion result on DO11...00
     
         return msgl
 
