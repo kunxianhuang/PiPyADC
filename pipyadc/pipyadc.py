@@ -8,7 +8,8 @@ import pigpio
 from .ADS1256_definitions import *
 from . import ADS1256_default_config
 from .ADS79XX_definitions import *
-from . import ADS79XX_default_config 
+from . import ADS79XX_default_config
+from . import ADS79XX_spi0ce0_config, ADS79XX_spi0ce1_config, ADS79XX_spi1ce0_config, ADS79XX_spi1ce1_config, ADS79XX_spi1ce2_config
 
 
 logger = logging.getLogger("PiPyADC")
@@ -104,7 +105,7 @@ class ADS79XX():
     def configure_gpios(self, conf):
         # The following four GPIOs are used for this ADS79XX implementation:
         self._CS_PIN = conf.CS_PIN
-        
+        self.spi_bus = conf.SPI_BUS
         if conf.CS_PIN in self.exclusive_pins_used:
             self.stop_close_all()
             raise RuntimeError("CS pin already used. Must be exclusive!")
@@ -124,17 +125,27 @@ class ADS79XX():
     def configure_spi(self, conf):
         # SPI bus config
         logger.debug(f"Activating SPI, SW chip select on GPIO: {conf.CS_PIN}")
+        self.ce_chn = conf.CE_CHN
         # The ADS79XX uses SPI MODE=1 <=> CPOL=0, CPHA=0. 
         if hasattr(conf, "SPI_FLAGS"):
             spi_flags = conf.SPI_FLAGS
         else:
-            #              bbbbbbRTnnnnWAuuupppmm
-            spi_flags  = 0b0000000000000011100000 
+            if self.ce_chn == 2: # CE2
+                #              bbbbbbRTnnnnWAuuupppmm
+                spi_flags  = 0b0000000000000001100000 
+            elif self.ce_chn == 1: # CE1
+                #              bbbbbbRTnnnnWAuuupppmm
+                spi_flags  = 0b0000000000000010100000 
+            else: # CE0 and others
+                #              bbbbbbRTnnnnWAuuupppmm
+                spi_flags  = 0b0000000000000011000000 
         if hasattr(conf, "SPI_BUS") and conf.SPI_BUS == 1:
-            spi_flags |= 0b0000000000000111100000 
+            #              bbbbbbRTnnnnWAuuupppmm
+            spi_flags |= 0b0000000000000100000000 
         # PIGPIO library returns a numeric handle for each chip on this bus.
+        
         try:
-            self.spi_handle = self.pi.spi_open(0, conf.SPI_FREQUENCY, spi_flags)
+            self.spi_handle = self.pi.spi_open(self.ce_chn, conf.SPI_FREQUENCY, spi_flags)
         except Exception as e:
             logger.error("SPI open error")
             self.stop_close_all()

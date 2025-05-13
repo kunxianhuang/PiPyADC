@@ -38,9 +38,9 @@ CHIP_HARD_RESET_ON_START = False
 # This is required as hardware chip select can not be used with the ADS125x
 # devices using this library
 #CS_PIN      = 22  # GEN3
-CS_PIN      = 8   # 8 SPI0 CE0, 7 SPI0 CE1, 18 SPI1 CE0, 17 SPI1 CE1, 16 SP1 CE2.
+CS_PIN      = 7   # 8 SPI0 CE0, 7 SPI0 CE1, 18 SPI1 CE0, 17 SPI1 CE1, 16 SP1 CE2.
 
-CE_CHN= 0 # CE0
+CE_CHN = 1 # CE1
 # If DRDY is not connected to an input, a sufficient DRDY_TIMEOUT must be
 # specified further below and aquisition will be slower.
 #DRDY_PIN    = 17

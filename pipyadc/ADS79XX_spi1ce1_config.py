@@ -12,7 +12,7 @@ from pipyadc.ADS79XX_definitions import *
 LOGLEVEL = logging.WARNING
 
 # 0 for main SPI bus, 1 for auxiliary SPI bus.
-SPI_BUS = 0
+SPI_BUS = 1
 # SPI clock rate in Hz. However, since
 # the Raspberry pi only supports power-of-two fractions of the 250MHz system
 # clock, the closest value would be 1953125 Hz, which is slightly out of spec
@@ -38,9 +38,9 @@ CHIP_HARD_RESET_ON_START = False
 # This is required as hardware chip select can not be used with the ADS125x
 # devices using this library
 #CS_PIN      = 22  # GEN3
-CS_PIN      = 8   # 8 SPI0 CE0, 7 SPI0 CE1, 18 SPI1 CE0, 17 SPI1 CE1, 16 SP1 CE2.
+CS_PIN      = 17   # 8 SPI0 CE0, 7 SPI0 CE1, 18 SPI1 CE0, 17 SPI1 CE1, 16 SP1 CE2.
 
-CE_CHN= 0 # CE0
+CE_CHN = 1 # CE0
 # If DRDY is not connected to an input, a sufficient DRDY_TIMEOUT must be
 # specified further below and aquisition will be slower.
 #DRDY_PIN    = 17
