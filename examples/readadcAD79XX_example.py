@@ -7,6 +7,10 @@ Hardware: ADS79XX interfaced to the Raspberry Pi 4
  
 Kunxian Huang 2023-10-18
 
+Expand to test 4 subboards (64) channels
+
+revised on 2026-04-28
+
 
 """
 import os,sys
@@ -14,6 +18,7 @@ import logging
 from time import perf_counter,sleep,strftime,localtime
 from pipyadc import ADS79XX
 from pipyadc.ADS79XX_definitions import *
+from pipyadc import ADS79XX_spi0ce0_config, ADS79XX_spi0ce1_config, ADS79XX_spi1ce0_config, ADS79XX_spi1ce1_config, ADS79XX_spi1ce2_config
 from pipyadc import ADS79XX_default_config
 
 
@@ -72,7 +77,8 @@ def main():
         
         # Use this to have ADS79XX automatically close the SPI device and
         # pigpio resources at exit:
-        with ADS79XX(ADS79XX_default_config) as ads:
+        # example for one subboard
+        with ADS79XX(ADS79XX_spi0ce0_config) as ads:
             ads.set_auto2mode(retain_last=1,reset=1)
             ads.set_auto2mode(retain_last=0,reset=0)
             ads.set_programauto2()
