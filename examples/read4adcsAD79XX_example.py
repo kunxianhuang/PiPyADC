@@ -7,7 +7,7 @@ Hardware: ADS79XX interfaced to the Raspberry Pi 4
  
 Kunxian Huang 2023-10-18
 
-Expand to test subboards channels
+Expand to test 4 subboards (64) channels
 
 revised on 2026-04-28
 
