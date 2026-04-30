@@ -9,7 +9,7 @@ Kunxian Huang 2023-10-18
 
 Expand to test 4 subboards (64) channels
 
-revised on 2026-04-28
+revised on 2026-04-30
 
 
 """
@@ -36,7 +36,7 @@ def raw_to_voltage(raw_channel,v_per_digit):
     return adc_ch,voltage
 
 
-def loop_oneminute_measurements(ads,adcFile):
+def loop_oneminute_measurements(ads1,ads2,ads3,ads4, adsadcFile):
     # Arbitrary length tuple of input channel pair values to scan sequentially
     CH_SEQUENCE = 0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15
     # sample rate 50 Hz for recording 1 min data 
@@ -44,6 +44,11 @@ def loop_oneminute_measurements(ads,adcFile):
     i=0
     while i <counts:
 
+        record_time_1 = reading_sequence(ads1,0,adcFile)
+        record_time_2 = reading_sequence(ads2,1,adcFile)
+        record_time_3 = reading_sequence(ads3,2,adcFile)
+        record_time_4 = reading_sequence(ads4,3,adcFile)
+        """
         start = perf_counter()
         # Returns list of integers, one result for each configured channel
         raw_channels = ads.read_sequence(CH_SEQUENCE)
@@ -61,14 +66,32 @@ def loop_oneminute_measurements(ads,adcFile):
         #print("epoch {} channel {} execute time {}\n".format(epoch,chs,exe_time))
         for ch,voltage in zip(ch_l,voltage_l):
             adcFile.write("CH:{}\t Voltage:{}V\t Time:{}\n".format(ch,voltage,record_time))
-
-        
+        """
 
         time.sleep(1.0/50.0) # 50 Hz
         i+=1
         
+def reading_sequence(ads,adsnumber:int,adcFile):
 
+    start = perf_counter()
+    raw_channels = ads.read_sequence(CH_SEQUENCE)
+    record_time = strftime('%c', localtime())
+    ch_l =[]
+    voltage_l=[]
+    for raw_channel in raw_channels:
+        ch, voltage = raw_to_voltage(raw_channel,ads.v_per_digit)
+        ch_l.append(int(ch))
+        voltage_l.append(voltage)
+    ch_la = numpy.array(ch_l)
+    ch_la = ch_la + adsnumber*16
 
+    end = perf_counter()
+    exe_time = (end-start)
+    print("execute {}-times time {}\n".format(i,exe_time))
+    for ch,voltage in zip(ch_la,voltage_l):
+            adcFile.write("CH:{}\t Voltage:{}V\t Time:{}\n".format(ch,voltage,record_time))
+
+    return record_time
 
 def main():
 
