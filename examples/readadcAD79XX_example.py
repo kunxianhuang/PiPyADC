@@ -16,6 +16,8 @@ revised on 2026-04-28
 import os,sys
 import logging
 from time import perf_counter,sleep,strftime,localtime
+import time
+sys.path.append("path/to/PiPyADC")
 from pipyadc import ADS79XX
 from pipyadc.ADS79XX_definitions import *
 from pipyadc import ADS79XX_spi0ce0_config, ADS79XX_spi0ce1_config, ADS79XX_spi1ce0_config, ADS79XX_spi1ce1_config, ADS79XX_spi1ce2_config

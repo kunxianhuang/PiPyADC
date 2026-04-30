@@ -77,26 +77,3 @@ v_ref = 3.3
 gain_flags = 2 
 ################################################################################
 
-####################  ADS1256 Default Register Settings  #######################
-# REG_STATUS:
-# When enabling the AUTOCAL flag: Any following operation that changes
-# PGA GAIN, DRATE or BUFFER flags triggers a self calibration:
-# THIS REQUIRES an additional timeout via WaitDRDY() after each such operation.
-# Note: BUFFER_ENABLE means the ADC input voltage range is limited
-# to (AVDD-2V),see datasheet
-status = BUFFER_ENABLE
-# REG_MUX:
-# Default: positive input = AIN0, negative input = AINCOM
-mux = POS_AIN0 | NEG_AINCOM
-# REG_ADCON:
-# Disable clk out signal (if not needed, source of disturbance),
-# sensor detect current sources disabled, gain setting as defined above:
-adcon = CLKOUT_OFF | SDCS_OFF | gain_flags
-# REG_DRATE: 
-# 10 SPS places a filter zero at 50 Hz and 60 Hz for line noise rejection
-drate  = DRATE_10
-# REG_IO: No GPIOs needed
-gpio = 0x00
-################################################################################
-
-

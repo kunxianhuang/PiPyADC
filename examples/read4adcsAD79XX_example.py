@@ -16,6 +16,8 @@ revised on 2026-04-30
 import os,sys
 import logging
 from time import perf_counter,sleep,strftime,localtime
+import time
+sys.path.append("path/to/PiPyADC")
 from pipyadc import ADS79XX
 from pipyadc.ADS79XX_definitions import *
 from pipyadc import ADS79XX_spi0ce0_config, ADS79XX_spi0ce1_config, ADS79XX_spi1ce0_config, ADS79XX_spi1ce1_config, ADS79XX_spi1ce2_config
@@ -36,7 +38,7 @@ def raw_to_voltage(raw_channel,v_per_digit):
     return adc_ch,voltage
 
 
-def loop_oneminute_measurements(ads1,ads2,ads3,ads4, adsadcFile):
+def loop_oneminute_measurements(ads1,ads2,ads3,ads4, adcFile):
     # Arbitrary length tuple of input channel pair values to scan sequentially
     CH_SEQUENCE = 0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15
     # sample rate 50 Hz for recording 1 min data 
@@ -100,13 +102,20 @@ def main():
         
         # Use this to have ADS79XX automatically close the SPI device and
         # pigpio resources at exit:
-        # example for one subboard
-        with ADS79XX(ADS79XX_spi0ce0_config) as ads:
+        
+
+        ads1 = ADS79XX(ADS79XX_spi0ce0_config)
+        ads2 = ADS79XX(ADS79XX_spi0ce0_config)
+        ads3 = ADS79XX(ADS79XX_spi0ce0_config)
+        ads4 = ADS79XX(ADS79XX_spi0ce0_config)
+        ads_l = [ads1,ads2,ads3,ads4]
+        for ads in ads_l:
             ads.set_auto2mode(retain_last=1,reset=1)
             ads.set_auto2mode(retain_last=0,reset=0)
             ads.set_programauto2()
-            # Get and process data
-            loop_oneminute_measurements(ads,adcfile)
+
+        # Get and process data
+        loop_oneminute_measurements(ads1,ads2,ads3,ads4,adcfile)
 
     except KeyboardInterrupt:
         print("\nUser Exit.\n")
