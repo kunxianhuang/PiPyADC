@@ -47,10 +47,10 @@ def loop_oneminute_measurements(ads1,ads2,ads3,ads4, adcFile):
     i=0
     while i <counts:
 
-        record_time_1 = reading_sequence(ads1,0,adcFile)
-        record_time_2 = reading_sequence(ads2,1,adcFile)
-        record_time_3 = reading_sequence(ads3,2,adcFile)
-        record_time_4 = reading_sequence(ads4,3,adcFile)
+        record_time_1 = reading_sequence(i,ads1,0,adcFile)
+        record_time_2 = reading_sequence(i,ads2,1,adcFile)
+        record_time_3 = reading_sequence(i,ads3,2,adcFile)
+        record_time_4 = reading_sequence(i,ads4,3,adcFile)
         """
         start = perf_counter()
         # Returns list of integers, one result for each configured channel
@@ -74,8 +74,8 @@ def loop_oneminute_measurements(ads1,ads2,ads3,ads4, adcFile):
         time.sleep(1.0/50.0) # 50 Hz
         i+=1
         
-def reading_sequence(ads,adsnumber:int,adcFile):
-
+def reading_sequence(i,ads,adsnumber:int,adcFile):
+    CH_SEQUENCE = 0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15
     start = perf_counter()
     raw_channels = ads.read_sequence(CH_SEQUENCE)
     record_time = strftime('%c', localtime())
@@ -106,9 +106,9 @@ def main():
         
 
         ads1 = ADS79XX(ADS79XX_spi0ce0_config)
-        ads2 = ADS79XX(ADS79XX_spi0ce0_config)
-        ads3 = ADS79XX(ADS79XX_spi0ce0_config)
-        ads4 = ADS79XX(ADS79XX_spi0ce0_config)
+        ads2 = ADS79XX(ADS79XX_spi1ce0_config)
+        ads3 = ADS79XX(ADS79XX_spi0ce1_config)
+        ads4 = ADS79XX(ADS79XX_spi1ce1_config)
         ads_l = [ads1,ads2,ads3,ads4]
         for ads in ads_l:
             ads.set_auto2mode(retain_last=1,reset=1)
