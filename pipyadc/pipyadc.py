@@ -283,6 +283,7 @@ class ADS79XX():
         self._chip_select()
         
         count, inbytes = self.pi.spi_xfer(self.spi_handle,msgl)
+        time.sleep(self._T_conv_TIMEOUT)
         if count !=2:
             logger.error("SPI read error occurred!")
 
@@ -341,19 +342,7 @@ class ADS79XX():
             # The minimum t_w1 timeout between commands, see datasheet Figure 2.
             time.sleep(self._T_w1_TIMEOUT)
 
-    def _init_output(self, pin, init_state, name="output"):
-        if pin is not None and pin not in self.pins_initialized:
-            logger.debug(f"Setting as output: {pin} ({name})")
-            self.pi.set_mode(pin, pigpio.OUTPUT)
-            self.pi.write(pin, init_state)
-            self.pins_initialized[pin] = pin
-
-    def _init_input(self, pin, init_state, name="input"):
-        if pin is not None and pin not in self.pins_initialized:
-            logger.debug(f"Setting as input: {pin} ({name})")
-            self.pi.set_mode(pin, pigpio.INPUT)
-            self.pi.write(pin, init_state)
-            self.pins_initialized[pin] = pin
+    
 
 
 
