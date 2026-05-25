@@ -17,8 +17,8 @@ SPI_BUS = 0
 # the Raspberry pi only supports power-of-two fractions of the 250MHz system
 # clock, the closest value would be 1953125 Hz, which is slightly out of spec
 # for the ADS79XX. Choosing 250MHz/256 = 976563 Hz is a safe choice.
-#SPI_FREQUENCY = 976563
-SPI_FREQUENCY = 244140
+SPI_FREQUENCY = 976563
+#SPI_FREQUENCY = 244140
 # Risking the slightly out-of-spec speed:
 #SPI_FREQUENCY = 1953125
 # If set to True this will perform a chip reset using the hardware reset line

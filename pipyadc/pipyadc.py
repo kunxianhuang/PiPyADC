@@ -283,7 +283,7 @@ class ADS79XX():
         self._chip_select()
         
         count, inbytes = self.pi.spi_xfer(self.spi_handle,msgl)
-        time.sleep(self._T_conv_TIMEOUT)
+        
         if count !=2:
             logger.error("SPI read error occurred!")
 
